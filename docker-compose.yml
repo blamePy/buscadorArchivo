@@ -1,0 +1,16 @@
+version: '3.9'
+
+services:
+  flask-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./uploaded_pdfs:/app/uploaded_pdfs  # Asegúrate de tener este volumen para PDFs
+      - ./pdf_index.db:/app/pdf_index.db  # Para persistir la base de datos de SQLite
+    environment:
+      FLASK_ENV: production  # Asegúrate de que Flask está en modo producción
+    command: ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]  # Usar Gunicorn en lugar del servidor Flask por defecto
+    restart: always

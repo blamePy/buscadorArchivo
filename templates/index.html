@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buscador de Documentos</title>
+    <style>
+        /* Estilo general */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f9f9f9;
+            color: #333;
+            margin: 20px;
+            line-height: 1.6;
+        }
+        h1, h2 {
+            color: #2c3e50;
+        }
+        h1 {
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        form {
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        #uploadMessage {
+            font-weight: bold;
+            color: #2c3e50;
+            display: none;
+        }
+        /* Botones */
+        button {
+            background-color: #3498db;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        button:focus {
+            outline: none;
+        }
+        /* Inputs con íconos */
+        .input-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            gap: 15px;
+        }
+        .input-group label {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background-color: #ecf0f1;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #bdc3c7;
+            transition: background-color 0.3s ease;
+        }
+        .input-group label:hover {
+            background-color: #dce4ea;
+        }
+        .icon {
+            width: 24px;
+            height: 24px;
+        }
+        /* Resultados */
+        #results {
+            margin-top: 30px;
+        }
+        .result {
+            background-color: #fff;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .result strong {
+            color: #3498db;
+        }
+        /* Listado de archivos seleccionados */
+        #fileList {
+            list-style-type: none;
+            padding: 0;
+        }
+        #fileList li {
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Buscador de Documentos</h1>
+
+    <h2>Subir Archivos o Carpetas</h2>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <div class="input-group">
+            <label>
+                <img src="upload-icon.png" alt="Ícono de archivo" class="icon">
+                Subir Archivos
+                <input type="file" name="files" accept=".pdf,.docx" multiple>
+            </label>
+        </div>
+        <div class="input-group">
+            <label>
+                <img src="folder-icon.png" alt="Ícono de carpeta" class="icon">
+                Subir Carpeta
+                <input type="file" name="folder" webkitdirectory>
+            </label>
+        </div>
+        <button type="submit">Subir Documentos</button>
+    </form>
+    <p id="uploadMessage"></p>
+    <ul id="fileList"></ul>
+
+    <h2>Buscar palabra clave</h2>
+    <input type="text" id="keyword" placeholder="Ingrese palabra clave" style="padding: 10px; width: 300px; border: 1px solid #bdc3c7; border-radius: 5px;">
+    <button id="searchButton">Buscar</button>
+
+    <div id="results"></div>
+
+    <script>
+        const uploadForm = document.getElementById("uploadForm");
+        const uploadMessage = document.getElementById("uploadMessage");
+        const fileList = document.getElementById("fileList");
+
+        // Mostrar archivos seleccionados
+        uploadForm.addEventListener("change", () => {
+            fileList.innerHTML = "";
+            const inputFiles = uploadForm.querySelectorAll('input[type="file"]');
+            inputFiles.forEach(input => {
+                Array.from(input.files).forEach(file => {
+                    const li = document.createElement("li");
+                    li.textContent = file.name;
+                    fileList.appendChild(li);
+                });
+            });
+        });
+
+        // Manejar subida de archivos
+        uploadForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const formData = new FormData(uploadForm);
+            const response = await fetch("/", { method: "POST", body: formData });
+            
+            if (response.ok) {
+                const data = await response.json();
+                uploadMessage.style.display = "block";
+                uploadMessage.textContent = data.message;
+
+                // Limpiar formulario y refrescar página después de 3 segundos
+                setTimeout(() => {
+                    uploadMessage.style.display = "none";
+                    fileList.innerHTML = "";
+                    uploadForm.reset();
+                }, 3000);
+            } else {
+                const errorData = await response.json();
+                uploadMessage.style.display = "block";
+                uploadMessage.style.color = "red";
+                uploadMessage.textContent = errorData.message;
+            }
+        });
+
+        // Manejar búsqueda
+        const searchButton = document.getElementById("searchButton");
+        const keywordInput = document.getElementById("keyword");
+        const resultsDiv = document.getElementById("results");
+
+        searchButton.addEventListener("click", async () => {
+            const keyword = keywordInput.value;
+            if (!keyword) return;
+
+            const response = await fetch(`/search?keyword=${encodeURIComponent(keyword)}`);
+            const results = await response.json();
+
+            resultsDiv.innerHTML = "";
+            if (results.length === 0) {
+                resultsDiv.textContent = "No se encontraron resultados.";
+                return;
+            }
+
+            results.forEach((result) => {
+                const div = document.createElement("div");
+                div.className = "result";
+                div.innerHTML = `
+                    <strong>Archivo:</strong> ${result.file_name}<br>
+                    <strong>Página:</strong> ${result.page_number}<br>
+                    <strong>Contenido:</strong> ${result.content}
+                    <button onclick="viewMore('${result.file_name}')">Ver más</button>
+                `;
+                resultsDiv.appendChild(div);
+            });
+        });
+
+        async function viewMore(fileName) {
+            const response = await fetch(`/view_pdf?file_name=${encodeURIComponent(fileName)}`);
+            const url = await response.json();
+            window.open(url.url, "_blank");
+        }
+    </script>
+</body>
+</html>
